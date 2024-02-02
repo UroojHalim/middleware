@@ -40,10 +40,39 @@ let request=[];
                 },
   } } else if(custompayload){
    // const customPayload = formatCustomPayload(custompayload);
-   const customPayload ={ 
-    "echoValue": "Passing Json to Bot method1"
-   }
-    console.log('custompayload', custompayload);
+  //  const customPayload ={ 
+  //   "echoValue": "Passing Json to Bot method1"
+  //  }
+  //   console.log('custompayload', custompayload);
+  
+function formatCustomPayload(payload) {
+  const formattedPayload = {
+    queryParams: {
+      payload: {
+        fields: {}
+      }
+    }
+  };
+
+  for (const [key, value] of Object.entries(payload.customPayload)) {
+    if (typeof value === 'string') {
+      request.queryParams.payload.fields[key] = {
+        stringValue: value,
+        kind: 'stringValue'
+      };
+    } else if (typeof value === 'object' && value !== null) {
+      for (const [subkey, subvalue] of Object.entries(value)) {
+        request.queryParams.payload.fields[`${key}.${subkey}`] = {
+          stringValue: subvalue,
+          kind: 'stringValue'
+        };
+      }
+    }
+  }
+
+  return formattedPayload;
+}
+//const formattedPayload = formatCustomPayload(custompayload);
     request = {
       session: sessionPath,
       queryInput: {
@@ -53,25 +82,35 @@ let request=[];
         },
             intent: text,
               },
-              QueryParams: {
-                Payload: {}
-            }
-            }
+              queryParams: {
+                payload: {
+                  fields: {}
+                }
+              }
+             
+            //  formattedPayload
+//               QueryParams: {
+//                 Payload: {}
+//             }
+//             }
 
-//let json = JSON.parse(custompayload);
-const customPayloadStr = JSON.stringify(customPayload);
-let json = JSON.parse(customPayloadStr);
-let payload = {};
-for (let key in json) {
+// //let json = JSON.parse(custompayload);
+// const customPayloadStr = JSON.stringify(customPayload);
+// let json = JSON.parse(customPayloadStr);
+// let payload = {};
+// for (let key in json) {
 
-    payload[key] = json[key].toString();
+//     payload[key] = json[key].toString();
+// }
+// console.log(payload)
+// request.QueryParams.Payload = {};
+
+//   }
+
+  
 }
-console.log(payload)
-request.QueryParams.Payload = {};
-
-  }
-
-  else {
+const formattedPayload = formatCustomPayload(custompayload);
+} else {
      request = {
         session: sessionPath,
         queryInput: {
@@ -84,6 +123,7 @@ request.QueryParams.Payload = {};
                 },
   }
 }
+// const formattedPayload = formatCustomPayload(custompayload);
 
   try {
     console.log("request", request);

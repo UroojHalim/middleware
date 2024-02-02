@@ -4,10 +4,9 @@ const PromptDefinition = require("./schemas/PromptDefinition");
 const BotExchangeBranch= require("./schemas/BotExchangeBranch");
 const BotSessionState=require("./schemas/BotSessionState");
 const userInputType = require("./schemas/UserInputType");
-const { getConfig,versionMeetsMinimumDemarcation } = require('./Get');
+const { getConfig } = require('./Get');
 const {VirtualAgentConfig}= require( "./VirtualAgentConfig" )
 const bodyParser = require('body-parser');
-const { SessionsClient } = require('@google-cloud/dialogflow');
 const {objectIsValidRichContentPrompt,convertStructuredFormatToOriginal,getJObjectRepresentation, processPayload,findCustomPayloadIndex }=require("./mediaObjects");
 const detectIntent = require('./botresponse');
 const app = express();
@@ -27,12 +26,12 @@ app.post('/', async (req, res) => {
   let virtualAgentConfig = new VirtualAgentConfig();
   let botSessionState = new BotSessionState(); 
   let sessionState=req.body.botSessionState;
-  let p=String(req.body.customPayload);
+  
 
   let customPayload_bot = req.body.customPayload;
   let combinedPrompt = '';
   let sessionIdBot= "";
-  console.log(userInputType);
+
  if(req.body.botConfig != null)
 {
    virtualAgentConfig = getConfig(req.body,botExchangeResponse);
@@ -48,31 +47,21 @@ try {
   } catch (error) {
     console.error(`Error deserializing BotSessionState: ${error.message}`);
   }
-  // const shouldReturnBotSessionStatePerLifeCycleRules = versionMeetsMinimumDemarcation(virtualAgentConfig.IntegrationVersion, "3.0.0");
+
 }else {
   var sessionId = `BusNo(${busNo})_ContactId(${contactID})`;
   if (contactID < 0) {
-    // Generate a random suffix for test sessions
-      sessionId += `_random(${Math.floor(Math.random() * 99999999)})`;
-    //   }
-  //botSessionState.SessionID = sessionId;
+    
+  sessionId += `_random(${Math.floor(Math.random() * 99999999)})`; 
  botExchangeResponse.botSessionState.SessionID=  sessionId;
  sessionIdBot=sessionId
- //botExchangeResponse.botSessionState.SessionID =  sessionId;
+ 
 }}
 if (customPayload_bot) {
-  // const customPayloadValues = [];
-  // for (const key of Object.keys(customPayload_bot)) {
-  //   const value = customPayload_bot[key];
-  //   customPayloadValues.push(value);
-   
-  // }
+  
   const  text = req.body.userInput;
   const event=null;
-  
-  const customPayloadStr = JSON.stringify(customPayload_bot);
-  //const customPayloadObject = getJObjectRepresentation(customPayloadStr);
-  const result = await detectIntent(sessionIdBot, text,event, customPayloadStr);
+  const result = await detectIntent(sessionIdBot, text,event, customPayload_bot);
    botExchangeResponse.intentInfo.intent = result.intent.displayName;
    botExchangeResponse.intentInfo.intentConfidence = 100;
    combinedPrompt += result.fulfillmentText;;
@@ -81,14 +70,6 @@ if (customPayload_bot) {
    prompts.push(userInputPrompt);
    botExchangeResponse.branchName = BotExchangeBranch['PromptAndCollectNextResponse'];
 }
-//  // prompts[0].transcript = customPayloadValues.join(' '); 
-//   //const customPayloadPrompt = new PromptDefinition();
-//   //customPayloadPrompt.transcript = customPayloadValues.join(' '); // Combine custom payload values
-//   //.push(customPayloadPrompt);
-//   combinedPrompt += customPayloadValues.join(' '); 
-
-// }
-// // Log or use the extracted values
 
 if (req.body.userInputType == userInputType.AUTOMATED_TEXT && customPayload_bot==null) {
   if (req.body.userInput.toUpperCase() == "WELCOME"){
@@ -113,43 +94,53 @@ if (req.body.userInputType == userInputType.AUTOMATED_TEXT && customPayload_bot=
    botExchangeResponse.branchName = BotExchangeBranch['PromptAndCollectNextResponse'];
   }
   }
-else if (req.body.userInputType == userInputType.TEXT && customPayload_bot == null) {
+else if (req.body.userInputType == userInputType.TEXT && customPayload_bot==null) {
    const  text = req.body.userInput;
    const result = await detectIntent(sessionIdBot, text); 
-  //  sessionIdBot is defined
    botExchangeResponse.intentInfo.Intent = result.intent.displayName;
   botExchangeResponse.intentInfo.intentConfidence = result.intentDetectionConfidence;
-  //  botExchangeResponse.intentInfo.LastUserUtterance=
-   // prompts[0].transcript = userInput;
    let queryResult = result.fulfillmentMessages;
-   console.log(queryResult);
+   queryResult .forEach(message => {
+    if (message.text && Array.isArray(message.text.text) && message.text.text.length > 0) {
+      // Extract the text message
+      const textMessage = message.text.text[0];
+
+      // Create a new prompt for each message
+      const prompt = new PromptDefinition();
+      prompt.transcript = textMessage;
+
+      // Add the prompt to the prompts array
+      prompts.push(prompt);
    
-   queryResult[0].payload
+   queryResult[0].payload;
+    }})
    if (queryResult && queryResult.length > 0 && queryResult.some(element => element.hasOwnProperty('payload')) ) {
     const index = findCustomPayloadIndex(queryResult);
    let fulfillmentCustPayload = queryResult[index].payload;
     if (objectIsValidRichContentPrompt(fulfillmentCustPayload)) {
-      // console.log("fulfillmentCustPayload ", fulfillmentCustPayload );
-      // console.log("fulfillmentCustPayload ", typeof fulfillmentCustPayload );
+     
        const originalFormat =convertStructuredFormatToOriginal(fulfillmentCustPayload);
        console.log(originalFormat);
        const prompt = new PromptDefinition();
-       // prompt.mediaSpecificObject = fulfillmentCustPayload;
+       
         prompt.mediaSpecificObject = originalFormat ;
         prompts.push(prompt);
       
-    }else{
+    }
+    else{
       const originalFormat =convertStructuredFormatToOriginal(fulfillmentCustPayload);
       const result = processPayload(originalFormat);
      if (result) {
-    console.log("Intent:", result.intent);
-    botExchangeResponse.intentInfo.Intent = result.intent;
-    botExchangeResponse.branchName = BotExchangeBranch[result.branchName];
+     console.log("Intent:", result.intent);
+     botExchangeResponse.intentInfo.Intent = result.intent;
+     botExchangeResponse.branchName = BotExchangeBranch[result.branchName];
       } 
       botExchangeResponse.customPayload['scriptPayloads'] = originalFormat;
+      
   
      // botExchangeResponse.customPayload['scriptPayloads'] = originalFormat;
     }
+    
 
 } else
 {
@@ -165,23 +156,12 @@ else if (req.body.userInputType == userInputType.TEXT && customPayload_bot == nu
       // Add the prompt to the prompts array
       prompts.push(prompt);
 
-      // Optionally, update the last user utterance (or any other relevant part of botExchangeResponse)
-  
+      
   }
-  // Process each message
-  // // Example: Create a new prompt for each message
-  // const prompt = new PromptDefinition();
-  // prompt.transcript = message;
-  // //prompts.textToSpeech = message;
-  // prompts.push(prompt);
-  // botExchangeResponse.intentInfo.LastUserUtterance= message;
-  
+ 
 });}
 
 
-  //  const fulfillmentMsg = result.fulfillmentMessages;
-  //  console.log( result.fulfillmentMsg);
-   //console.log( result.fulfillmentMsg.payload);
   
      botExchangeResponse.intentInfo.LastUserUtterance = result.queryText;
      if (result.intent.endInteraction){
@@ -257,10 +237,10 @@ else if (req.body.userInputType == userInputType.TEXT && customPayload_bot == nu
   {botExchangeResponse.branchName = BotExchangeBranch['PromptAndCollectNextResponse']};
  
   botExchangeResponse.nextPromptSequence.prompts = prompts;
-  console.log( botExchangeResponse.nextPromptSequence.prompts)
-  console.log(botExchangeResponse.nextPromptSequence.prompts)
-  console.log('Received request:', req.body);
-  console.log('Sending response:', botExchangeResponse);
+  // console.log( botExchangeResponse.nextPromptSequence.prompts)
+  // console.log(botExchangeResponse.nextPromptSequence.prompts)
+  // console.log('Received request:', req.body);
+  // console.log('Sending response:', botExchangeResponse);
 
   return res.json(botExchangeResponse);
 });

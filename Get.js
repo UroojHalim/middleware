@@ -49,23 +49,7 @@ function getConfig(request,botExchangeResponse) {
 }
 
 
-// function versionMeetsMinimumDemarcation(integrationVersion, minimumVersion) {
-//   try {
-//     const integration = parseFloat(integrationVersion);
-//     const minimum = parseFloat(minimumVersion);
 
-//     return !isNaN(integration) && !isNaN(minimum) && integration >= minimum;
-//   } catch (error) {
-//     // Handle the error if needed
-//     return false;
-//   }
-// }
-
-// Example usage
-
-
-
-// Example usage
 
 module.exports = {
   getConfig,
